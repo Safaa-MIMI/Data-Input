@@ -1,0 +1,62 @@
+clear
+close all
+clc
+load('Time-of-Use-Pricing.mat')
+load('Total-consumption.mat')
+load('PV-production.mat')
+pts = 96; %%number of points considered
+
+P_z = P_g + P_pv;      % Net load with solar panels and consumed load without storage integration.
+
+price=pricedata(1:pts,3);           % ToU pricing with 3 levels
+price_nominal=pricedata(1:pts,1);   % Flat-rate pricing
+e_ch=0.95;                          % Charging efficiency
+e_dis =0.95;                        % Discharging efficiency
+del_max = 4000;                     % Maximum charging rate
+del_min = -del_max;                 % Minimum discharging rate
+b_initial = 1000;                   % Initial battery capacity
+B_0 = b_initial*ones(pts,1);
+b_rated = 2000;                     % rated battery capacity
+B_max = b_rated*ones(pts,1);
+B_min = 200*ones(pts,1);            % Minimum battery capacity
+h=0.25;                             % sampling time of 1 minute
+x_upper= del_max*ones(pts,1);
+x_lower= del_min*ones(pts,1);
+
+M = tril(ones(pts,pts));
+%% Mode I 
+Landa_1=1*ones(pts);
+Landa_2=0*ones(pts);
+
+
+
+
+cvx_begin
+variables x_ch(pts,1) x_ds(pts,1) b_cap_mat(pts,1)
+variables b_bat(pts,1)  load_total(pts,1)
+minimize sum (Landa_1*(price'*(P_z + b_bat)))
+subject to
+    zeros(pts,1)<= x_ch <= x_upper;    %%charging
+    zeros(pts,1)<= x_ds <= -x_lower;    %% discharging
+    b_bat == x_ch-x_ds;
+    load_total == x_ch/e_ch-x_ds*e_dis + P_g;
+    b_cap_mat == B_0 + M*b_bat*h;
+    B_min <= b_cap_mat <= B_max;  %%battery capacity
+cvx_end
+
+B = B_0 + M*b_bat*h;
+P_l = P_z + b_bat;
+
+%% Plots 
+
+t = 0: 1/4: 24-1/4;
+
+figure;
+plot(t,P_g); hold on;plot(t,P_z); hold on; plot(t,P_l)
+legend('Grid load excluding storage and renewable energy','Mode 0 : Grid load with renewable energy, excluding storage' ,'Mode I: maximizing comfort')
+plot(t,price)
+legend('Time-of-Use Pricing')
+
+
+self_sufficiency_solar = 1 - sum(max(0, P_g))/sum(max(0, P_z));
+
