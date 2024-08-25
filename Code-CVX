@@ -24,7 +24,7 @@ x_upper= del_max*ones(pts,1);
 x_lower= del_min*ones(pts,1);
 
 M = tril(ones(pts,pts));
-%% Mode I 
+%% Mode I: Mode I: maximizing comfort  
 Landa_1=1*ones(pts);
 Landa_2=0*ones(pts);
 
@@ -34,29 +34,27 @@ Landa_2=0*ones(pts);
 cvx_begin
 variables x_ch(pts,1) x_ds(pts,1) b_cap_mat(pts,1)
 variables b_bat(pts,1)  load_total(pts,1)
-minimize sum (Landa_1*(price'*(P_z + b_bat)))
+minimize sum (Landa_1*(price'*load_total))
 subject to
     zeros(pts,1)<= x_ch <= x_upper;    %%charging
     zeros(pts,1)<= x_ds <= -x_lower;    %% discharging
     b_bat == x_ch-x_ds;
-    load_total == x_ch/e_ch-x_ds*e_dis + P_g;
+    load_total == x_ch/e_ch-x_ds*e_dis + P_z;
     b_cap_mat == B_0 + M*b_bat*h;
     B_min <= b_cap_mat <= B_max;  %%battery capacity
 cvx_end
 
-B = B_0 + M*b_bat*h;
-P_l = P_z + b_bat;
 
 %% Plots 
 
 t = 0: 1/4: 24-1/4;
 
 figure;
-plot(t,P_g); hold on;plot(t,P_z); hold on; plot(t,P_l)
+plot(t,P_g); hold on;plot(t,P_z); hold on; plot(t,load_total)
 legend('Grid load excluding storage and renewable energy','Mode 0 : Grid load with renewable energy, excluding storage' ,'Mode I: maximizing comfort')
 plot(t,price)
 legend('Time-of-Use Pricing')
 
 
-self_sufficiency_solar = 1 - sum(max(0, P_g))/sum(max(0, P_z));
+PV_self_sufficiency = 1 - sum(max(0, P_g))/sum(max(0, P_z));
 
